@@ -100,8 +100,11 @@ function Profile() {
           </div>
         </div>
 
-        {/* ⚙️ Account Settings skeleton */}
-        <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl mb-8 flex items-center justify-between cursor-pointer hover:bg-gray-800 transition">
+        {/* ⚙️ Account Settings link */}
+        <div 
+          onClick={() => navigate("/settings")}
+          className="bg-gray-900 border border-gray-800 p-5 rounded-2xl mb-8 flex items-center justify-between cursor-pointer hover:bg-gray-800 transition"
+        >
           <span className="font-medium text-gray-300">⚙️ Account Settings</span>
           <span className="text-gray-500 text-lg">→</span>
         </div>

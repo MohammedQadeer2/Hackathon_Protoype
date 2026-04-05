@@ -124,7 +124,7 @@ function Details() {
             </a>
 
             <div className="w-1/4">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={() => navigate("/chat", { state: { partner: provider } })}>
                 💬
               </Button>
             </div>
