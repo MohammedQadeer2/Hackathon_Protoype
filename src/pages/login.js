@@ -10,16 +10,19 @@ function Login() {
   
   // Verification Multi-Step State
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   // Form Data State
   const [formData, setFormData] = useState({
     phoneOrEmail: "",
     otp: "",
     name: "",
+    password: "",
+    confirmPassword: "",
     role: "user",
-    aadhaar: "",
-    aadhaarFile: null,
+    idType: "Aadhaar",
+    idNumber: "",
+    idFile: null,
     address: ""
   });
 
@@ -32,12 +35,16 @@ function Login() {
   };
 
   const handleLogin = () => {
+    // Generate Unique Identifier from Document Number (simulating a hash/UUID to prevent duplicates)
+    const uniqueIdentityCode = `HMB-${formData.idType.substring(0, 3).toUpperCase()}-${(formData.idNumber || "0000").slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     // Final Step - Complete Onboarding
     login(formData.role, { 
       name: formData.name || "Verified User", 
       email: formData.phoneOrEmail, 
       profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80",
-      isVerified: true
+      isVerified: true,
+      uniqueId: uniqueIdentityCode
     });
     navigate("/home");
   };
@@ -178,10 +185,62 @@ function Login() {
                 </motion.div>
               )}
 
-              {/* STEP 3: Identity Verification (Aadhaar) */}
+              {/* STEP 3: Password Setup */}
               {step === 3 && (
                 <motion.div
                   key="step3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="flex flex-col gap-4"
+                >
+                  <div className="text-center mb-2">
+                    <span className="text-4xl inline-block mb-3">🔒</span>
+                    <h2 className="text-2xl font-bold">Secure Account</h2>
+                    <p className="text-sm text-gray-400 mt-1">Set a password for your account</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Confirm Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                    />
+                  </div>
+
+                  {formData.password && formData.password !== formData.confirmPassword && formData.confirmPassword && (
+                     <p className="text-xs text-red-500 text-center">Passwords do not match.</p>
+                  )}
+
+                  <Button 
+                    onClick={handleNext} 
+                    variant="primary" 
+                    className="mt-4 py-4"
+                    disabled={!formData.password || formData.password !== formData.confirmPassword}
+                  >
+                    Set Password →
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* STEP 4: Identity Verification (Aadhaar) */}
+              {step === 4 && (
+                <motion.div
+                  key="step4"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -193,14 +252,35 @@ function Login() {
                     <p className="text-sm text-gray-400 mt-1">To maintain trust and safety</p>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Aadhaar / ID Card Number</label>
+                  <div className="mb-2">
+                    <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Document Type</label>
+                    <select
+                      className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 appearance-none"
+                      value={formData.idType}
+                      onChange={(e) => setFormData({...formData, idType: e.target.value, idNumber: ""})}
+                    >
+                      <option value="Aadhaar">Aadhaar Card</option>
+                      <option value="PAN">PAN Card</option>
+                      <option value="Passbook">Bank Passbook</option>
+                      <option value="VoterID">Voter ID</option>
+                    </select>
+
+                    <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">{formData.idType} Number</label>
                     <input
                       type="text"
-                      placeholder="xxxx - xxxx - xxxx"
-                      className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 placeholder-gray-500 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                      value={formData.aadhaar}
-                      onChange={(e) => setFormData({...formData, aadhaar: e.target.value})}
+                      maxLength={
+                        formData.idType === "Aadhaar" ? 12 :
+                        formData.idType === "PAN" ? 10 :
+                        formData.idType === "VoterID" ? 10 : 18
+                      }
+                      placeholder={
+                        formData.idType === "Aadhaar" ? "XXXX XXXX XXXX" :
+                        formData.idType === "PAN" ? "ABCDE1234F" :
+                        "Enter Document Number"
+                      }
+                      className="w-full p-4 rounded-xl bg-gray-800 border border-gray-700 placeholder-gray-500 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                      value={formData.idNumber}
+                      onChange={(e) => setFormData({...formData, idNumber: e.target.value})}
                     />
                   </div>
 
@@ -211,16 +291,16 @@ function Login() {
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
-                          setFormData({...formData, aadhaarFile: e.target.files[0]});
+                          setFormData({...formData, idFile: e.target.files[0]});
                         }
                       }}
                     />
                     <div className="text-3xl mb-2 grayscale group-hover:grayscale-0 transition">🪪</div>
                     <p className="text-sm font-semibold text-blue-400">
-                      {formData.aadhaarFile ? "File Selected" : "Tap to Upload ID Photo"}
+                      {formData.idFile ? "File Selected" : "Tap to Upload ID Photo"}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {formData.aadhaarFile ? formData.aadhaarFile.name : "Front and back (JPG, PNG)"}
+                      {formData.idFile ? formData.idFile.name : "Front and back (JPG, PNG)"}
                     </p>
                   </label>
 
@@ -228,10 +308,10 @@ function Login() {
                 </motion.div>
               )}
 
-              {/* STEP 4: Location & Finish */}
-              {step === 4 && (
+              {/* STEP 5: Location & Finish */}
+              {step === 5 && (
                 <motion.div
-                  key="step4"
+                  key="step5"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}

@@ -12,14 +12,23 @@ function ProviderDashboard() {
 
   // Use state for requests so we can functionally "Accept" or "Reject" them from the UI screen
   const [requests, setRequests] = useState([
-    { id: 1, problem: "Fan motor replacement & wiring", user: "Rahul Sharma", location: "123 MG Road, 2km away", price: 350 },
-    { id: 2, problem: "Short circuit in kitchen board", user: "Amit Patel", location: "45 West Avenue, 5km away", price: 450 },
+    { id: 1, problem: "Fan motor replacement & wiring", user: "Rahul Sharma", location: "123 MG Road, 2km away", price: 350, paymentMethod: "online", orderId: "HMB-ORD-A1B2C3" },
+    { id: 2, problem: "Short circuit in kitchen board", user: "Amit Patel", location: "45 West Avenue, 5km away", price: 450, paymentMethod: "cash", orderId: "HMB-ORD-X9Y8Z7" },
   ]);
   
   const [history, setHistory] = useState([
-    { id: 101, service: "AC Servicing", date: "2026-04-04", earning: 500, rating: 5 },
-    { id: 102, service: "Switchboard Installation", date: "2026-04-02", earning: 200, rating: 4 },
+    { id: 101, service: "AC Servicing", date: "2026-04-04", earning: 425, commission: 75, paymentMethod: "online", rating: 5 },
+    { id: 102, service: "Switchboard Installation", date: "2026-04-02", earning: 170, commission: 30, paymentMethod: "cash", rating: 4 },
   ]);
+
+  // Wallet State
+  const [wallet, setWallet] = useState({
+    balance: 425, // Only online payments are "held" by the platform and can be withdrawn
+    totalEarnings: 595, // 425 (online) + 170 (cash)
+    totalCommissionPaid: 105,
+    pendingPayouts: 0,
+    totalOrders: 2
+  });
 
   // Active Job & Live Tracking State
   const [activeJob, setActiveJob] = useState(null);
@@ -54,18 +63,41 @@ function ProviderDashboard() {
     // Remove from live requests and set as Active Job
     setRequests(prev => prev.filter(r => r.id !== req.id));
     setActiveJob(req);
-    setJobStatus("traveling");
+    setJobStatus("traveling"); // Booked -> Accepted -> Traveling
     setWorkTimer(0);
     // Auto-update global availability mapping ideally happens here
   };
 
   const handleFinishJob = () => {
+    const basePrice = activeJob.price;
+    const commission = Math.round(basePrice * 0.15); // Platform fee calculation
+    const earning = basePrice - commission;
+
     // Add to history
-    setHistory([{ id: Date.now(), service: activeJob.problem, date: "2026-04-05", earning: activeJob.price, rating: 5 }, ...history]);
+    setHistory([{ 
+      id: Date.now(), 
+      service: activeJob.problem, 
+      date: "2026-04-05", 
+      earning: earning, 
+      commission: commission,
+      paymentMethod: activeJob.paymentMethod,
+      rating: 5 
+    }, ...history]);
+
+    // Update Wallet Dashboard
+    setWallet(prev => ({
+       balance: activeJob.paymentMethod === 'online' ? prev.balance + earning : prev.balance,
+       totalEarnings: prev.totalEarnings + earning,
+       totalCommissionPaid: prev.totalCommissionPaid + commission,
+       pendingPayouts: activeJob.paymentMethod === 'online' ? prev.pendingPayouts + earning : prev.pendingPayouts,
+       totalOrders: prev.totalOrders + 1
+    }));
+
     setActiveJob(null);
     setJobStatus("idle");
     setWorkTimer(0);
   };
+
 
   const handleLogout = () => {
     logout();
@@ -197,6 +229,21 @@ function ProviderDashboard() {
                     </button>
                  </div>
 
+                 <div className="flex bg-gray-900 border border-gray-800 p-4 rounded-xl flex-col gap-3 mb-4 text-sm mt-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-800">
+                       <span className="text-gray-400">Order ID: <span className="text-blue-400 font-mono tracking-wider ml-1">{activeJob.orderId}</span></span>
+                       <span className="text-gray-400">Price: <span className="font-bold text-white text-md">₹{activeJob.price}</span></span>
+                    </div>
+                    <div className="flex justify-between">
+                       <span className="text-gray-400">Payment:</span>
+                       {activeJob.paymentMethod === 'online' ? (
+                          <span className="px-2 py-0.5 rounded text-blue-400 bg-blue-900/30 border border-blue-800 text-xs font-bold font-mono">Platform Holds</span>
+                       ) : (
+                          <span className="px-2 py-0.5 rounded text-yellow-400 bg-yellow-900/30 border border-yellow-800 text-xs font-bold font-mono">Cash (On Delivery)</span>
+                       )}
+                    </div>
+                 </div>
+
                  {/* Work Status Actions */}
                  {jobStatus === "traveling" ? (
                    <button 
@@ -207,7 +254,7 @@ function ProviderDashboard() {
                    </button>
                  ) : (
                    <div className="flex flex-col gap-3">
-                     <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
+                     <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between shadow-inner mb-4">
                         <div>
                           <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-1">Live Work Timer</p>
                           <p className="text-xs text-gray-500">Tracking duration for client billing transparency</p>
@@ -218,9 +265,9 @@ function ProviderDashboard() {
                      </div>
                      <button 
                        onClick={handleFinishJob}
-                       className="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl text-md font-bold text-white shadow-lg transition"
+                       className="w-full py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 rounded-xl text-lg font-bold text-white shadow-lg transition transform hover:scale-[1.02]"
                      >
-                       ⏹️ Finish Job & Collect Payment
+                       ⏹️ Finish Job & {activeJob.paymentMethod === 'online' ? 'Release Payment' : 'Collect Cash'}
                      </button>
                    </div>
                  )}
@@ -229,7 +276,43 @@ function ProviderDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 📥 Incoming Requests Header with Toggle */}
+        {/* � Wallet & Earnings Section */}
+        {!activeJob && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-8 shadow-sm">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
+               <div>
+                 <h2 className="text-md font-semibold text-gray-300 flex items-center gap-2">💰 My Wallet</h2>
+                 <p className="text-xs text-gray-500">Platform Payments System</p>
+               </div>
+               <button className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-lg shadow-blue-500/20 transition">Withdraw</button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+               <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                 <p className="text-xs text-gray-400 font-bold uppercase mb-1">Available Balance</p>
+                 <p className="text-2xl font-bold text-green-400">₹{wallet.balance}</p>
+                 <p className="text-[10px] text-gray-500 mt-1">Platform held & ready to withdraw</p>
+               </div>
+               <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                 <p className="text-xs text-gray-400 font-bold uppercase mb-1">Total Earnings</p>
+                 <p className="text-xl font-bold text-white">₹{wallet.totalEarnings}</p>
+                 <p className="text-[10px] text-gray-500 mt-1">Including Cash Orders</p>
+               </div>
+               <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                 <p className="text-xs text-red-400/80 font-bold uppercase mb-1">Commission Paid</p>
+                 <p className="text-lg font-bold text-red-400/80">₹{wallet.totalCommissionPaid}</p>
+                 <p className="text-[10px] text-gray-500 mt-1">15% platform fee</p>
+               </div>
+               <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                 <p className="text-xs text-gray-400 font-bold uppercase mb-1">Total Jobs</p>
+                 <p className="text-lg font-bold text-blue-400">{wallet.totalOrders}</p>
+                 <p className="text-[10px] text-gray-500 mt-1">Completed successfully</p>
+               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* �📥 Incoming Requests Header with Toggle */}
         {!activeJob && (
           <div className="mb-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
             <div className="flex justify-between items-center w-full">
@@ -319,10 +402,16 @@ function ProviderDashboard() {
                   <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                   <div className="flex justify-between">
                     <h3 className="text-md font-bold text-gray-100">{req.problem}</h3>
-                    <p className="text-lg font-bold text-green-400">₹{req.price}</p>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-green-400">₹{req.price}</p>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase">
+                        {req.paymentMethod === 'online' ? "Platform" : "Cash"}
+                      </p>
+                    </div>
                   </div>
                   
                   <div className="text-xs text-gray-400 mt-2 space-y-1">
+                    <p>📦 Order: <span className="font-mono text-blue-400 bg-blue-900/20 px-1 py-0.5 rounded">{req.orderId}</span></p>
                     <p>👤 <span className="text-gray-300">{req.user}</span></p>
                     <p>📍 {req.location}</p>
                   </div>
@@ -355,7 +444,7 @@ function ProviderDashboard() {
           </div>
         )}
 
-        {/* 📜 Job History */}
+        {/* 📜 Job History & Payouts */}
         <div>
           <h2 className="text-md font-semibold mb-4 text-gray-300">Recent Completed Jobs</h2>
 
@@ -367,11 +456,18 @@ function ProviderDashboard() {
               >
                 <div>
                   <p className="text-sm font-semibold text-gray-200">{job.service}</p>
-                  <p className="text-xs text-gray-500 mt-1">📅 {job.date}</p>
+                  <div className="flex gap-2 items-center mt-1">
+                    <p className="text-xs text-gray-500">📅 {job.date}</p>
+                    <span className="text-[10px] font-mono text-gray-400 bg-gray-800 border border-gray-700 px-1 py-0.5 rounded tracking-wide uppercase">
+                      {job.paymentMethod === 'online' ? '💳 WALLET' : '💵 CASH'}
+                    </span>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-md font-bold text-green-400">+₹{job.earning}</p>
-                  <p className="text-xs text-yellow-500 mt-1">{"⭐".repeat(job.rating)}</p>
+                  <p className="text-[10px] text-red-500/80 font-bold mt-0.5 flex justify-end gap-1">
+                    <span className="text-gray-500 font-normal">Fee:</span> -₹{job.commission}
+                  </p>
                 </div>
               </div>
             ))}
