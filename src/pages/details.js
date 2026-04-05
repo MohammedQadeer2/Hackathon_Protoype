@@ -21,6 +21,10 @@ function Details() {
     );
   }
 
+  // Evaluate Badges again for Details view
+  const isTopRated = provider.rating >= 4.8;
+  const isSuperPro = provider.jobsCompleted > 300;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-blue-950 flex justify-center text-white pb-20">
       <div className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-4xl">
@@ -45,19 +49,36 @@ function Details() {
           </button>
         </div>
 
-        <div className="px-4 -mt-12 relative z-20">
+          <div className="px-4 -mt-12 relative z-20">
           {/* 👤 Profile Card */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gray-900 border border-gray-800 p-6 rounded-2xl mb-6 shadow-xl text-center"
+            className="bg-gray-900 border border-gray-800 p-6 rounded-2xl mb-6 shadow-xl text-center relative overflow-visible"
           >
             {/* Avatar positioned halfway off the card */}
-            <div className="flex justify-center -mt-16 mb-4">
-              <Avatar src={provider.profileImage} size="xl" className="shadow-black shadow-lg" />
+            <div className="flex justify-center -mt-16 mb-4 relative z-30">
+              <Avatar src={provider.profileImage} size="xl" className={`shadow-black shadow-lg ${isSuperPro ? 'border-4 border-purple-500' : isTopRated ? 'border-4 border-yellow-500' : 'border-4 border-gray-700'}`} />
+              <div className={`absolute bottom-2 right-2 w-6 h-6 border-4 border-gray-900 rounded-full ${provider.availability ? 'bg-green-500' : 'bg-gray-500'}`}></div>
             </div>
 
-            <h1 className="text-2xl font-bold mb-1">{provider.name}</h1>
+            {/* Badges centered above name */}
+            <div className="flex justify-center flex-wrap gap-2 mb-3">
+              {isTopRated && (
+                <span className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 text-xs px-3 py-1 rounded-full font-bold shadow-md uppercase tracking-wide inline-block">
+                  🏆 Top Rated
+                </span>
+              )}
+              {isSuperPro && (
+                <span className="bg-purple-500/20 border border-purple-500/50 text-purple-400 text-xs px-3 py-1 rounded-full font-bold shadow-md uppercase tracking-wide inline-block">
+                  ⚡ Super Pro
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-2xl font-bold mb-1 flex justify-center items-center gap-2">
+              {provider.name}
+            </h1>
             <p className="text-sm font-medium text-blue-400 mb-2 uppercase tracking-wide">
               {provider.category}
             </p>
@@ -65,7 +86,9 @@ function Details() {
             <div className="flex justify-center items-center gap-4 text-sm text-gray-300 mb-4">
               <span className="flex items-center gap-1">⭐ <span className="font-semibold text-white">{provider.rating}</span> ({provider.reviews})</span>
               <span className="text-gray-600">|</span>
-              <span className="flex items-center gap-1">📍 {provider.location}</span>
+              <span className="flex items-center gap-1 font-medium text-gray-300">✅ {provider.jobsCompleted} <span className="text-gray-500 font-normal">jobs</span></span>
+              <span className="text-gray-600">|</span>
+              <span className="flex items-center gap-1">📍 {provider.location.split(',')[0]}</span>
             </div>
 
             <div className="inline-block px-6 py-2 bg-gray-800 rounded-full text-lg font-bold text-green-400 border border-gray-700">
@@ -111,6 +134,34 @@ function Details() {
               </div>
             </motion.div>
           )}
+
+          {/* 📍 Live Location Map */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gray-900 border border-gray-800 p-5 rounded-2xl mb-12"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-md font-semibold text-gray-200 flex items-center gap-2">
+                📍 Provider Location
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              </h2>
+            </div>
+            <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-gray-800 relative z-10 bg-gray-800 shadow-inner">
+              {/* Google Maps iFrame based on Provider's location string */}
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                style={{ border: 0, filter: 'invert(90%) hue-rotate(180deg)' }}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(provider.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                allowFullScreen
+                title="Provider Location Map"
+              ></iframe>
+            </div>
+            <p className="text-xs text-gray-500 mt-3 text-center uppercase tracking-wide font-medium">Tracking via verified address</p>
+          </motion.div>
         </div>
 
         {/* 🚀 Fixed Bottom ACTION BUTTONS */}

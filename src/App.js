@@ -12,6 +12,7 @@ const Profile = React.lazy(() => import("./pages/profile"));
 const ProProfile = React.lazy(() => import("./pages/providerProfile"));
 const Settings = React.lazy(() => import("./pages/settings"));
 const Chat = React.lazy(() => import("./pages/chat"));
+const MapView = React.lazy(() => import("./pages/map"));
 
 // Modern fallback loader for route transitions
 const LoadingSpinner = () => (
@@ -35,6 +36,7 @@ function App() {
             <Route path="/provider-profile" element={<ProProfile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/map" element={<MapView />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

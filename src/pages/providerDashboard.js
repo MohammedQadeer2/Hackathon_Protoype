@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -15,21 +15,64 @@ function ProviderDashboard() {
     { id: 1, problem: "Fan motor replacement & wiring", user: "Rahul Sharma", location: "123 MG Road, 2km away", price: 350 },
     { id: 2, problem: "Short circuit in kitchen board", user: "Amit Patel", location: "45 West Avenue, 5km away", price: 450 },
   ]);
-
-  const history = [
+  
+  const [history, setHistory] = useState([
     { id: 101, service: "AC Servicing", date: "2026-04-04", earning: 500, rating: 5 },
     { id: 102, service: "Switchboard Installation", date: "2026-04-02", earning: 200, rating: 4 },
-  ];
+  ]);
 
-  const handleAction = (id) => {
-    // Filter out the request to simulate acting on it
+  // Active Job & Live Tracking State
+  const [activeJob, setActiveJob] = useState(null);
+  const [jobStatus, setJobStatus] = useState("idle"); // 'idle' | 'traveling' | 'working'
+  const [workTimer, setWorkTimer] = useState(0);
+
+  // Timer logic for when status is 'working'
+  useEffect(() => {
+    let interval;
+    if (jobStatus === "working") {
+      interval = setInterval(() => {
+        setWorkTimer((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [jobStatus]);
+
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleDecline = (id) => {
     setRequests(prev => prev.filter(req => req.id !== id));
+  };
+
+  const handleAccept = (req) => {
+    // Remove from live requests and set as Active Job
+    setRequests(prev => prev.filter(r => r.id !== req.id));
+    setActiveJob(req);
+    setJobStatus("traveling");
+    setWorkTimer(0);
+    // Auto-update global availability mapping ideally happens here
+  };
+
+  const handleFinishJob = () => {
+    // Add to history
+    setHistory([{ id: Date.now(), service: activeJob.problem, date: "2026-04-05", earning: activeJob.price, rating: 5 }, ...history]);
+    setActiveJob(null);
+    setJobStatus("idle");
+    setWorkTimer(0);
   };
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
+
+  const [viewMode, setViewMode] = useState("list"); // 'list' or 'map'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-blue-950 flex justify-center text-white pb-10">
@@ -100,20 +143,169 @@ function ProviderDashboard() {
           <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl shadow-sm">
             <p className="text-xs text-gray-400 mb-1">Total Earnings</p>
             <h3 className="text-2xl font-bold text-blue-400">₹18,500</h3>
-            <p className="text-xs text-blue-600 mt-1">142 Jobs completed</p>
+            <p className="text-xs text-blue-600 mt-1">{142 + history.length - 2} Jobs completed</p>
           </div>
         </div>
 
-        {/* 📥 Incoming Requests */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4 text-gray-300">
-            <h2 className="text-md font-semibold">Live Job Requests</h2>
-            <span className="text-xs bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30">
-              {requests.length} New
-            </span>
-          </div>
+        {/* 🔴 Active Job Status Module (Only visible if currently working) */}
+        <AnimatePresence>
+          {activeJob && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mb-8 overflow-hidden"
+            >
+              <div className="bg-blue-900/20 border-2 border-blue-500/50 p-6 rounded-2xl shadow-[0_0_15px_rgba(59,130,246,0.3)] relative">
+                 <div className="flex justify-between items-start mb-4">
+                   <div>
+                     <h2 className="text-lg font-bold text-blue-400 uppercase tracking-wide">Active Assignment</h2>
+                     <p className="text-xl font-semibold text-gray-100 mt-1">{activeJob.problem}</p>
+                   </div>
+                   <div className="text-right">
+                     <p className="text-sm font-medium text-gray-400">Payout</p>
+                     <p className="text-xl font-bold text-green-400">₹{activeJob.price}</p>
+                   </div>
+                 </div>
+                 
+                 {/* Live Tracking Map Frame */}
+                 <div className="w-full h-32 bg-gray-800 rounded-xl mb-4 border border-gray-700 overflow-hidden relative shadow-inner">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      style={{ border: 0, filter: 'invert(90%) hue-rotate(180deg)' }}
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(activeJob.location)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                      allowFullScreen
+                      title="Customer Location"
+                    ></iframe>
+                    {/* Live Indicator Overlay */}
+                    <div className="absolute top-2 left-2 bg-gray-900/80 backdrop-blur border border-gray-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                       <span className={`w-2 h-2 rounded-full ${jobStatus === 'working' ? 'bg-red-500 animate-pulse' : 'bg-blue-500 animate-bounce'}`}></span> 
+                       {jobStatus === 'traveling' ? 'Traveling to Client (Live GPS)' : 'Job Started (Live Sync)'}
+                    </div>
+                 </div>
 
-          <div className="space-y-4">
+                 <div className="flex bg-gray-900 border border-gray-800 p-4 rounded-xl items-center gap-4 mb-4">
+                    <Avatar size="sm" className="bg-gray-800" />
+                    <div>
+                      <p className="text-sm font-bold text-gray-200">{activeJob.user}</p>
+                      <p className="text-xs text-gray-400 flex items-center gap-1">📍 {activeJob.location}</p>
+                    </div>
+                    <button className="ml-auto w-10 h-10 rounded-full bg-green-900/30 border border-green-800 flex items-center justify-center text-green-400 hover:bg-green-700 hover:text-white transition shadow-sm">
+                      📞
+                    </button>
+                 </div>
+
+                 {/* Work Status Actions */}
+                 {jobStatus === "traveling" ? (
+                   <button 
+                     onClick={() => setJobStatus("working")}
+                     className="w-full py-4 bg-green-600 hover:bg-green-500 rounded-xl text-lg font-bold text-white shadow-lg shadow-green-500/30 transition transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                   >
+                     ✅ Reached Location — Start Work
+                   </button>
+                 ) : (
+                   <div className="flex flex-col gap-3">
+                     <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
+                        <div>
+                          <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-1">Live Work Timer</p>
+                          <p className="text-xs text-gray-500">Tracking duration for client billing transparency</p>
+                        </div>
+                        <div className="text-3xl font-mono font-bold text-red-500 ml-4 animate-pulse tabular-nums">
+                          {formatTime(workTimer)}
+                        </div>
+                     </div>
+                     <button 
+                       onClick={handleFinishJob}
+                       className="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl text-md font-bold text-white shadow-lg transition"
+                     >
+                       ⏹️ Finish Job & Collect Payment
+                     </button>
+                   </div>
+                 )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 📥 Incoming Requests Header with Toggle */}
+        {!activeJob && (
+          <div className="mb-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div className="flex justify-between items-center w-full">
+              <div className="flex items-center gap-2">
+                <h2 className="text-md font-semibold text-gray-300">Live Requests</h2>
+                <span className="text-xs bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30">
+                  {requests.length} New
+                </span>
+              </div>
+              
+              {/* View Mode Toggle */}
+              <div className="flex bg-gray-900 border border-gray-800 rounded-lg p-1">
+                <button 
+                  onClick={() => setViewMode("list")}
+                  className={`text-xs px-3 py-1.5 rounded-md transition ${viewMode === "list" ? "bg-gray-800 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  List
+                </button>
+                <button 
+                  onClick={() => setViewMode("map")}
+                  className={`text-xs px-3 py-1.5 rounded-md transition flex items-center gap-1 ${viewMode === "map" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  Radar 📡
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🗺️ Radar View */}
+        {viewMode === "map" && !activeJob && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full h-80 bg-gray-900 border border-gray-800 rounded-2xl mb-8 relative overflow-hidden flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/blueprint.png')] bg-blue-950/10"
+          >
+            {/* Center Provider Outline */}
+            <div className="absolute z-10 w-10 h-10 bg-green-500/20 border-2 border-green-500 rounded-full flex items-center justify-center">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-ping"></span>
+              <span className="absolute -bottom-6 text-[10px] text-green-400 font-bold tracking-widest uppercase">YOU</span>
+            </div>
+            {/* Radar Sweeper */}
+            <div className="absolute w-40 h-40 border border-blue-500/30 rounded-full animate-[spin_3s_linear_infinite] pointer-events-none">
+              <div className="w-1/2 h-full bg-gradient-to-r from-transparent to-blue-500/20 rotate-45 transform origin-right"></div>
+            </div>
+
+            {/* Request Blips */}
+            {requests.map((req, i) => (
+              <div 
+                key={req.id} 
+                className="absolute w-4 h-4 bg-red-500 rounded-full shadow-[0_0_15px_rgba(239,68,68,1)] flex items-center justify-center cursor-pointer hover:scale-150 transition-transform z-20 group"
+                style={{ 
+                  top: `${30 + (i * 30)}%`, 
+                  left: `${20 + (i * 45)}%` 
+                }}
+              >
+                 <div className="absolute w-full h-full bg-red-500 rounded-full animate-ping opacity-50"></div>
+                 {/* Toolout Card on hover of blip */}
+                 <div className="hidden group-hover:flex absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-red-500/50 p-2 rounded-xl flex-col items-center shadow-xl w-32 z-30">
+                   <span className="text-[10px] text-red-400 font-bold whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">New Job!</span>
+                   <span className="text-xs text-white font-semibold text-center mt-1">₹{req.price}</span>
+                 </div>
+              </div>
+            ))}
+            
+            {requests.length === 0 && (
+              <div className="absolute z-20 text-gray-500 text-sm font-bold bg-black/50 px-4 py-2 rounded-xl backdrop-blur-sm border border-gray-800">
+                No active requests...
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* 📋 List View */}
+        {viewMode === "list" && !activeJob && (
+          <div className="space-y-4 mb-8">
             <AnimatePresence>
               {requests.map((req) => (
                 <motion.div
@@ -137,13 +329,13 @@ function ProviderDashboard() {
 
                   <div className="flex gap-3 mt-5">
                     <button 
-                      onClick={() => handleAction(req.id)}
+                      onClick={() => handleAccept(req)}
                       className="flex-1 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-semibold transition"
                     >
                       Accept
                     </button>
                     <button 
-                      onClick={() => handleAction(req.id)}
+                      onClick={() => handleDecline(req.id)}
                       className="flex-1 py-2 bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 rounded-xl text-sm font-semibold transition border border-gray-700 hover:border-red-500"
                     >
                       Decline
@@ -161,7 +353,7 @@ function ProviderDashboard() {
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* 📜 Job History */}
         <div>
